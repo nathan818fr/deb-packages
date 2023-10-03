@@ -1,0 +1,18 @@
+name: noisetorch
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: '48 0 * * *'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./packages/noisetorch.sh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

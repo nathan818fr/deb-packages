@@ -1,0 +1,18 @@
+name: cidr-merger
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: '4 22 * * *'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./packages/cidr-merger.sh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -47,8 +47,15 @@ function gh_get_release() {
   repo="$1"
   target="$2"
 
+  local gh_authorization
+  if [[ -n "${GITHUB_TOKEN:-}" ]]; then
+    gh_authorization="Bearer ${GITHUB_TOKEN}"
+  else
+    gh_authorization='Basic Og=='
+  fi
+
   curl -fsSL \
-    -H "Authorization: Bearer ${GITHUB_TOKEN:--}" \
+    -H "Authorization: ${gh_authorization}" \
     -H 'Accept: application/vnd.github+json' \
     -H 'X-GitHub-Api-Version: 2022-11-28' \
     "${GITHUB_API_URL:-https://api.github.com}/repos/${repo}/releases/${target}" \
@@ -256,12 +263,14 @@ function publish_pkg_ghassets() {
   ghassets_latest_meta="$GHASSETS_LATEST_META"
   ghassets_all_meta="$(gh_get_release "${GITHUB_REPOSITORY}" 'tags/all')"
 
+  local pkg_file
   while IFS= read -rd '' pkg_file; do
     log_info "Uploading ${pkg_file} ..."
     gh_upload_release_asset "$(jq -Mr '.upload_url' <<< "$ghassets_all_meta")" "$pkg_file" > /dev/null
     gh_upload_release_asset "$(jq -Mr '.upload_url' <<< "$ghassets_latest_meta")" "$pkg_file" > /dev/null
   done < <(find . -mindepth 1 -maxdepth 1 -type f -name "${PKG_NAME}_${PKG_VERSION}_*.deb" -print0)
 
+  local asset_id asset_name
   while IFS=$'\t' read -rd $'\n' asset_id asset_name; do
     log_info "Deleting the outdated ${asset_name} from latest ..."
     gh_delete_release_asset "${GITHUB_REPOSITORY}" "$asset_id" > /dev/null

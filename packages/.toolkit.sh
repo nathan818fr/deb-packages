@@ -42,6 +42,27 @@ function normalize_pkg_version() {
   printf '%s\n' "${version:0:60}"
 }
 
+function set_pkg_version_revision() {
+  local target_version revision
+  target_version="$1"
+  revision="$2"
+
+  if [[ "$PKG_VERSION" == "$target_version" ]]; then
+    PKG_VERSION="${PKG_VERSION}-${revision}"
+  fi
+}
+
+function get_arch_exe() {
+  local name
+  name="$1"
+
+  # TODO: Check arch, file exists, etc.
+  local exe
+  exe="./${name}-amd64"
+  chmod +x "$exe"
+  printf '%s\n' "$exe"
+}
+
 function gh_get_release() {
   local repo target
   repo="$1"
@@ -115,6 +136,14 @@ function fetch_gh_release() {
   GH_RELEASE_META="$release_meta"
   PKG_VERSION="$version"
   PKG_RELEASE_DATE="$published_at"
+}
+
+function download_gh_sources() {
+  local download_url
+  download_url="$(jq -Mr '.tarball_url')"
+
+  mkdir sources
+  curl -fL -- "$download_url" | tar -xz --strip-components=1 -C sources
 }
 
 function download_gh_release() {
@@ -192,10 +221,27 @@ function create_pkg_from_binary() {
 
     function callback_for_create_pkg_raw() {
       local pkg_dir="$1" pkg_arch="$2"
+
+      # Add binary
       mkdir -p -- "${pkg_dir}/usr/bin"
       cp -T -- "$binary_file" "${pkg_dir}/usr/bin/${binary_name}"
       chmod 755 -- "${pkg_dir}/usr/bin/${binary_name}"
 
+      # Add shell completions
+      if [[ -f "${binary_name}.bash-completion" ]]; then
+        mkdir -p -- "${pkg_dir}/usr/share/bash-completion/completions"
+        cp -T -- "${binary_name}.bash-completion" "${pkg_dir}/usr/share/bash-completion/completions/${binary_name}"
+      fi
+      if [[ -f "${binary_name}.zsh-completion" ]]; then
+        mkdir -p -- "${pkg_dir}/usr/share/zsh/vendor-completions"
+        cp -T -- "${binary_name}.zsh-completion" "${pkg_dir}/usr/share/zsh/vendor-completions/_${binary_name}"
+      fi
+      if [[ -f "${binary_name}.fish-completion" ]]; then
+        mkdir -p -- "${pkg_dir}/usr/share/fish/vendor_completions.d"
+        cp -T -- "${binary_name}.fish-completion" "${pkg_dir}/usr/share/fish/vendor_completions.d/${binary_name}.fish"
+      fi
+
+      # Run original callback
       if [[ -n "$create_pkg_from_binary_callback" ]]; then
         "$create_pkg_from_binary_callback" "$pkg_dir" "$pkg_arch" "$binary_file"
       fi

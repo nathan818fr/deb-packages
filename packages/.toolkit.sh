@@ -109,8 +109,7 @@ function gh_delete_release_asset() {
     -H "Authorization: Bearer ${GITHUB_TOKEN:--}" \
     -H 'Accept: application/vnd.github+json' \
     -H 'X-GitHub-Api-Version: 2022-11-28' \
-    "${GITHUB_API_URL:-https://api.github.com}/repos/${repo}/releases/assets/${asset_id}" \
-    > /dev/null
+    "${GITHUB_API_URL:-https://api.github.com}/repos/${repo}/releases/assets/${asset_id}"
 }
 
 function fetch_gh_release() {
@@ -309,9 +308,15 @@ function publish_pkg_ghassets() {
   ghassets_latest_meta="$GHASSETS_LATEST_META"
   ghassets_all_meta="$(gh_get_release "${GITHUB_REPOSITORY}" 'tags/all')"
 
-  local pkg_file
+  local pkg_file pkg_files=()
   while IFS= read -rd '' pkg_file; do
+    pkg_files+=("$pkg_file")
     log_info "Uploading ${pkg_file} ..."
+    if [[ "${GITHUB_REF_NAME:-}" != 'main' ]]; then
+      log_info '-> Skipping upload since not on main branch'
+      continue
+    fi
+
     gh_upload_release_asset "$(jq -Mr '.upload_url' <<< "$ghassets_all_meta")" "$pkg_file" > /dev/null
     gh_upload_release_asset "$(jq -Mr '.upload_url' <<< "$ghassets_latest_meta")" "$pkg_file" > /dev/null
   done < <(find . -mindepth 1 -maxdepth 1 -type f -name "${PKG_NAME}_${PKG_VERSION}_*.deb" -print0)
@@ -319,6 +324,11 @@ function publish_pkg_ghassets() {
   local asset_id asset_name
   while IFS=$'\t' read -rd $'\n' asset_id asset_name; do
     log_info "Deleting the outdated ${asset_name} from latest ..."
+    if [[ "${GITHUB_REF_NAME:-}" != 'main' ]]; then
+      log_info '-> Skipping delete since not on main branch'
+      continue
+    fi
+
     gh_delete_release_asset "${GITHUB_REPOSITORY}" "$asset_id" > /dev/null
   done < <(
     jq -Mr \
@@ -327,6 +337,32 @@ function publish_pkg_ghassets() {
       '.assets[] | select((.name|test("^\($pattern)$")) and (.name|test("^\($current)$")|not)) | "\(.id)\t\(.name)"' \
       <<< "$ghassets_latest_meta"
   )
+
+  if [[ -n "${GITHUB_NOTIF_ISSUE_NUMBER:-}" ]]; then
+    local nl=$'\n' comment="#### 🔔 Package published! _[automated comment]_"
+    comment+="${nl}Name: \`${PKG_NAME}\`"
+    comment+="${nl}Version: \`${PKG_VERSION}\`"
+    comment+="${nl}Files:"
+    for pkg_file in "${pkg_files[@]}"; do
+      comment+="${nl}- \`${pkg_file:2}\`"
+      comment+=" (size: $(stat -c %s -- "$pkg_file" | numfmt --to=iec-i --format '%.2fB'))"
+    done
+
+    log_info "Adding comment to issue #${GITHUB_NOTIF_ISSUE_NUMBER} ..."
+    printf '%s\n' "$comment"
+    if [[ "${GITHUB_REF_NAME:-}" != 'main' ]]; then
+      log_info '-> Skipping comment since not on main branch'
+    else
+      curl -fsSL \
+        -X POST \
+        -H "Authorization: Bearer ${GITHUB_NOTIF_ISSUE_TOKEN:-${GITHUB_TOKEN:--}}" \
+        -H 'Accept: application/vnd.github+json' \
+        -H 'X-GitHub-Api-Version: 2022-11-28' \
+        -d "$(jq -Mrn --arg body "$comment" '{body: $body}')" \
+        "${GITHUB_API_URL:-https://api.github.com}/repos/${GITHUB_REPOSITORY}/issues/${GITHUB_NOTIF_ISSUE_NUMBER}/comments" \
+        > /dev/null
+    fi
+  fi
 
   log_info 'Done'
 }

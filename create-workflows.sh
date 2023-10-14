@@ -28,6 +28,8 @@ jobs:
       - run: ${script}
         env:
           GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
+          GITHUB_NOTIF_ISSUE_NUMBER: 2
+          GITHUB_NOTIF_ISSUE_TOKEN: \${{ secrets.GH_NOTIF_ISSUE_TOKEN }}
 EOF
   done < <(find ./packages -type f -name '*.sh' -not -name '.*' -print0)
 

@@ -7,8 +7,8 @@ function __prepare_pkg() {
 
 function __create_pkg() {
   download_gh_release 'pack-.+-linux(-arm64)?\.tgz' <<< "$GH_RELEASE_META"
-  tar -xvf pack-*-linux.tgz pack -O > pack-linux-amd64
-  tar -xvf pack-*-linux-arm64.tgz pack -O > pack-linux-arm64
+  tar -xvf pack-*-linux.tgz 'pack' -O > 'pack-linux-amd64'
+  tar -xvf pack-*-linux-arm64.tgz 'pack' -O > 'pack-linux-arm64'
   rm -- ./*.tgz
 
   create_pkg_from_binary 'pack' 'pack-linux-*' << EOF

@@ -7,8 +7,8 @@ function __prepare_pkg() {
 
 function __create_pkg() {
   download_gh_release 'NoiseTorch_(x64)_.+\.tgz' <<< "$GH_RELEASE_META"
-  tar -xvf NoiseTorch_x64_*.tgz ./.local/share --strip-components=2
-  tar -xvf NoiseTorch_x64_*.tgz ./.local/bin/noisetorch -O > noisetorch-amd64
+  tar -xvf NoiseTorch_x64_*.tgz './.local/share' --strip-components=2
+  tar -xvf NoiseTorch_x64_*.tgz './.local/bin/noisetorch' -O > 'noisetorch-amd64'
   rm -- ./*.tgz
 
   function __callback() {

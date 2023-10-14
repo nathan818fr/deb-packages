@@ -7,8 +7,8 @@ function __prepare_pkg() {
 
 function __create_pkg() {
   download_gh_release 'yubico-authenticator-.+-linux\.tar\.gz' <<< "$GH_RELEASE_META"
-  mkdir -p yubico-authenticator-amd64
-  tar -xvf yubico-authenticator-*-linux.tar.gz --strip-components=1 -C yubico-authenticator-amd64
+  mkdir -p 'yubico-authenticator-amd64'
+  tar -xvf yubico-authenticator-*-linux.tar.gz --strip-components=1 -C 'yubico-authenticator-amd64'
   rm -- ./*.tar.gz
 
   function __callback() {

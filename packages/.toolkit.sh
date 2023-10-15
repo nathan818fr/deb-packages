@@ -11,12 +11,16 @@ function log_info() {
   printf "%s\n" "$1" >&2
 }
 
+function log_error() {
+  printf "%s\n" "$1" >&2
+}
+
 function validate_pkg_name() {
   local pkg_name
   pkg_name="$1"
 
   if [[ ! "$pkg_name" =~ ^[a-z0-9-]+$ ]]; then
-    printf "'%s' is not a valid package name\n" "$pkg_name" >&2
+    log_error "'${pkg_name}' is not a valid package name"
     return 1
   fi
 }
@@ -26,7 +30,7 @@ function validate_pkg_version() {
   pkg_version="$1"
 
   if [[ ! "$pkg_version" =~ ^[a-zA-Z0-9.:~+-]+$ ]]; then
-    printf "'%s' is not a valid package version\n" "$pkg_version" >&2
+    log_error "'${pkg_version}' is not a valid package version"
     return 1
   fi
 }
@@ -63,24 +67,40 @@ function get_arch_exe() {
   printf '%s\n' "$exe"
 }
 
+function gh_release_authorization() {
+  if [[ -n "${GITHUB_TOKEN:-}" ]]; then
+    echo "Bearer ${GITHUB_TOKEN}"
+  else
+    echo 'Basic Og=='
+  fi
+}
+
 function gh_get_release() {
   local repo target
   repo="$1"
   target="$2"
 
-  local gh_authorization
-  if [[ -n "${GITHUB_TOKEN:-}" ]]; then
-    gh_authorization="Bearer ${GITHUB_TOKEN}"
-  else
-    gh_authorization='Basic Og=='
-  fi
-
   curl -fsSL \
-    -H "Authorization: ${gh_authorization}" \
+    -H "Authorization: $(gh_release_authorization)" \
     -H 'Accept: application/vnd.github+json' \
     -H 'X-GitHub-Api-Version: 2022-11-28' \
     "${GITHUB_API_URL:-https://api.github.com}/repos/${repo}/releases/${target}" \
     | jq -Mr .
+}
+
+function gh_list_releases() {
+  local repo page per_page
+  repo="$1"
+  page="${2:-1}"
+  per_page="${3:-100}"
+
+  curl -fsSL \
+    -H "Authorization: $(gh_release_authorization)" \
+    -H 'Accept: application/vnd.github+json' \
+    -H 'X-GitHub-Api-Version: 2022-11-28' \
+    "${GITHUB_API_URL:-https://api.github.com}/repos/${repo}/releases?per_page=${per_page}&page=${page}" \
+    | jq -Mr .
+  # note: the name query parameter is not url-encoded, ok since we only use ascii
 }
 
 function gh_upload_release_asset() {
@@ -113,17 +133,43 @@ function gh_delete_release_asset() {
 }
 
 function fetch_gh_release() {
-  local repo
+  local repo pattern
   repo="$1"
+  pattern="${2:-}"
+
+  local pattern_name
+  if [[ -z "$pattern" ]]; then
+    pattern_name='*'
+  else
+    pattern_name="$pattern"
+  fi
 
   # Fetch latest release metadata from GitHub API
-  log_info "Fetching latest release metadata for ${repo} ..."
+  log_info "Fetching latest release metadata for ${repo} (tag: ${pattern_name}) ..."
   local release_meta
-  release_meta="$(gh_get_release "$repo" 'latest')"
+  if [[ -z "$pattern" ]]; then
+    release_meta="$(gh_get_release "$repo" 'latest')"
+  else
+    # TODO: support gh_list_releases pagination
+    release_meta="$(
+      gh_list_releases "$repo" \
+        | jq -Mr \
+          --arg pattern "$pattern" \
+          '[.[] | select(.tag_name|test("^\($pattern)$"))] | first'
+    )"
+  fi
+  if [[ -z "$release_meta" ]]; then
+    log_error "No release found for ${repo} (tag: '${pattern_name})"
+    return 1
+  fi
 
   # Extract version
   local version
-  version="$(jq -Mr '.tag_name' <<< "$release_meta")"
+  if [[ -z "$pattern" ]]; then
+    version="$(jq -Mr '.tag_name' <<< "$release_meta")"
+  else
+    version="$(jq -Mr --arg pattern "$pattern" '.tag_name | sub("^\($pattern)"; "\(.version)")' <<< "$release_meta")"
+  fi
   version="$(normalize_pkg_version "$version")"
 
   # Extact release date

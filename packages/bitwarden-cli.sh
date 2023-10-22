@@ -3,6 +3,7 @@
 function __prepare_pkg() {
   PKG_NAME='bitwarden-cli'
   fetch_gh_release 'bitwarden/clients' 'cli-(?<version>.+)'
+  set_pkg_version_revision '2023.9.1' '1' # added Conflicts
 }
 
 function __create_pkg() {
@@ -20,6 +21,7 @@ function __create_pkg() {
 
   create_pkg_from_binary 'bitwarden' 'bitwarden-*' << EOF
 Maintainer: Nathan Poirier <nathan@poirier.io>
+Conflicts: bitwarden
 Section: utils
 Priority: optional
 Homepage: https://bitwarden.com/help/cli/

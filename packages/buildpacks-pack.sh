@@ -3,7 +3,7 @@
 function __prepare_pkg() {
   PKG_NAME='buildpacks-pack'
   fetch_gh_release 'buildpacks/pack'
-  set_pkg_version_revision '0.31.0' '1' # added shell completions
+  set_pkg_version_revision '0.31.0' '2' # added Conflicts
 }
 
 function __create_pkg() {
@@ -20,6 +20,7 @@ function __create_pkg() {
 
   create_pkg_from_binary 'pack' 'pack-linux-*' << EOF
 Maintainer: Nathan Poirier <nathan@poirier.io>
+Conflicts: liballegro4-dev
 Section: devel
 Priority: optional
 Homepage: https://github.com/buildpacks/pack

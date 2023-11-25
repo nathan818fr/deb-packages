@@ -1,0 +1,20 @@
+name: act
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: '14 21 * * *'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./packages/act.sh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_NOTIF_ISSUE_NUMBER: 2
+          GITHUB_NOTIF_ISSUE_TOKEN: ${{ secrets.GH_NOTIF_ISSUE_TOKEN }}

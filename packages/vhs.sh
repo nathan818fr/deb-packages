@@ -7,8 +7,8 @@ function __prepare_pkg() {
 
 function __create_pkg() {
   download_gh_release 'vhs_.+_Linux_(x86_64|arm64).tar.gz' <<< "$GH_RELEASE_META"
-  tar -xvf vhs_*_Linux_x86_64.tar.gz 'vhs' -O > 'vhs-linux-amd64'
-  tar -xvf vhs_*_Linux_arm64.tar.gz 'vhs' -O > 'vhs-linux-arm64'
+  tar -xvf vhs_*_Linux_x86_64.tar.gz --wildcards 'vhs_*/vhs' -O > 'vhs-linux-amd64'
+  tar -xvf vhs_*_Linux_arm64.tar.gz --wildcards 'vhs_*/vhs' -O > 'vhs-linux-arm64'
   rm -- ./*.tar.gz
 
   create_pkg_from_binary 'vhs' 'vhs-linux-*' << EOF

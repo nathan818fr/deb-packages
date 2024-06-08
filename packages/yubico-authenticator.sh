@@ -2,7 +2,7 @@
 # shellcheck disable=SC2034,SC2317
 function __prepare_pkg() {
   PKG_NAME='yubico-authenticator'
-  fetch_gh_release 'Yubico/yubioath-flutter'
+  fetch_gh_release 'Yubico/yubioath-flutter' '(?!7\.0\.1$)(?<version>.+)' # Note: 7.0.1 is Android only
 }
 
 function __create_pkg() {

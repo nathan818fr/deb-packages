@@ -80,7 +80,7 @@ function gh_get_release() {
   repo="$1"
   target="$2"
 
-  curl -fsSL \
+  my_curl_silent \
     -H "Authorization: $(gh_release_authorization)" \
     -H 'Accept: application/vnd.github+json' \
     -H 'X-GitHub-Api-Version: 2022-11-28' \
@@ -94,7 +94,7 @@ function gh_list_releases() {
   page="${2:-1}"
   per_page="${3:-100}"
 
-  curl -fsSL \
+  my_curl_silent \
     -H "Authorization: $(gh_release_authorization)" \
     -H 'Accept: application/vnd.github+json' \
     -H 'X-GitHub-Api-Version: 2022-11-28' \
@@ -108,7 +108,7 @@ function gh_upload_release_asset() {
   upload_url="$1"
   file="$2"
 
-  curl -fL \
+  my_curl \
     -X POST \
     -H "Authorization: Bearer ${GITHUB_TOKEN:--}" \
     -H 'Accept: application/vnd.github+json' \
@@ -124,7 +124,7 @@ function gh_delete_release_asset() {
   repo="$1"
   asset_id="$2"
 
-  curl -fsSL \
+  my_curl_silent \
     -X DELETE \
     -H "Authorization: Bearer ${GITHUB_TOKEN:--}" \
     -H 'Accept: application/vnd.github+json' \
@@ -188,7 +188,7 @@ function download_gh_sources() {
   download_url="$(jq -Mr '.tarball_url')"
 
   mkdir sources
-  curl -fL -- "$download_url" | tar -xz --strip-components=1 -C sources
+  my_curl -- "$download_url" | tar -xz --strip-components=1 -C sources
 }
 
 function download_gh_release() {
@@ -210,7 +210,7 @@ function download_gh_release() {
     download_name="${download_name%%\?*}"
     download_name="${download_name##*/}"
     log_info "Downloading ${download_name} ..."
-    curl -fL -o "$download_name" -- "$download_url"
+    my_curl -o "$download_name" -- "$download_url"
   done <<< "$download_urls"
 }
 
@@ -399,7 +399,7 @@ function publish_pkg_ghassets() {
     if [[ "${GITHUB_REF_NAME:-}" != 'main' ]]; then
       log_info '-> Skipping comment since not on main branch'
     else
-      curl -fsSL \
+      my_curl_silent \
         -X POST \
         -H "Authorization: Bearer ${GITHUB_NOTIF_ISSUE_TOKEN:-${GITHUB_TOKEN:--}}" \
         -H 'Accept: application/vnd.github+json' \
@@ -411,6 +411,21 @@ function publish_pkg_ghassets() {
   fi
 
   log_info 'Done'
+}
+
+function my_curl() {
+  local output status
+  output=$(curl --show-error --fail-with-body --location "$@") && status=0 || status=$?
+  if [[ "$status" -ne 0 ]]; then
+    printf "curl: Response body: %s\n" "$output" >&2
+    return "$status"
+  fi
+
+  printf '%s' "$output"
+}
+
+function my_curl_silent() {
+  my_curl --silent "$@"
 }
 
 function main() {
